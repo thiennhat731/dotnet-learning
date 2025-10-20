@@ -1,0 +1,15 @@
+D:\Study\dotnet-learning\day01\bin\Debug\net9.0\day01.exe
+D:\Study\dotnet-learning\day01\bin\Debug\net9.0\day01.deps.json
+D:\Study\dotnet-learning\day01\bin\Debug\net9.0\day01.runtimeconfig.json
+D:\Study\dotnet-learning\day01\bin\Debug\net9.0\day01.dll
+D:\Study\dotnet-learning\day01\bin\Debug\net9.0\day01.pdb
+D:\Study\dotnet-learning\day01\obj\Debug\net9.0\day01.GeneratedMSBuildEditorConfig.editorconfig
+D:\Study\dotnet-learning\day01\obj\Debug\net9.0\day01.AssemblyInfoInputs.cache
+D:\Study\dotnet-learning\day01\obj\Debug\net9.0\day01.AssemblyInfo.cs
+D:\Study\dotnet-learning\day01\obj\Debug\net9.0\day01.csproj.CoreCompileInputs.cache
+D:\Study\dotnet-learning\day01\obj\Debug\net9.0\day01.sourcelink.json
+D:\Study\dotnet-learning\day01\obj\Debug\net9.0\day01.dll
+D:\Study\dotnet-learning\day01\obj\Debug\net9.0\refint\day01.dll
+D:\Study\dotnet-learning\day01\obj\Debug\net9.0\day01.pdb
+D:\Study\dotnet-learning\day01\obj\Debug\net9.0\day01.genruntimeconfig.cache
+D:\Study\dotnet-learning\day01\obj\Debug\net9.0\ref\day01.dll
