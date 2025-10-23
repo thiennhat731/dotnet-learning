@@ -1,0 +1,15 @@
+D:\Study\dotnet-learning\day04\obj\Debug\net9.0\day04.GeneratedMSBuildEditorConfig.editorconfig
+D:\Study\dotnet-learning\day04\obj\Debug\net9.0\day04.AssemblyInfoInputs.cache
+D:\Study\dotnet-learning\day04\obj\Debug\net9.0\day04.AssemblyInfo.cs
+D:\Study\dotnet-learning\day04\obj\Debug\net9.0\day04.csproj.CoreCompileInputs.cache
+D:\Study\dotnet-learning\day04\obj\Debug\net9.0\day04.sourcelink.json
+D:\Study\dotnet-learning\day04\bin\Debug\net9.0\day04.exe
+D:\Study\dotnet-learning\day04\bin\Debug\net9.0\day04.deps.json
+D:\Study\dotnet-learning\day04\bin\Debug\net9.0\day04.runtimeconfig.json
+D:\Study\dotnet-learning\day04\bin\Debug\net9.0\day04.dll
+D:\Study\dotnet-learning\day04\bin\Debug\net9.0\day04.pdb
+D:\Study\dotnet-learning\day04\obj\Debug\net9.0\day04.dll
+D:\Study\dotnet-learning\day04\obj\Debug\net9.0\refint\day04.dll
+D:\Study\dotnet-learning\day04\obj\Debug\net9.0\day04.pdb
+D:\Study\dotnet-learning\day04\obj\Debug\net9.0\day04.genruntimeconfig.cache
+D:\Study\dotnet-learning\day04\obj\Debug\net9.0\ref\day04.dll
