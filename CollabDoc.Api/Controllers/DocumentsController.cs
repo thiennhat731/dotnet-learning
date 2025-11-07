@@ -1,11 +1,12 @@
 using System.Security.Claims;
-using CollabDoc.Application.Documents.Commands.CreateDocument;
-using CollabDoc.Application.Documents.Commands.UpdateDocument;
-using CollabDoc.Application.Documents.Commands.DeleteDocument;
-using CollabDoc.Application.Documents.Queries.GetAllDocuments;
-using CollabDoc.Application.Documents.Queries.GetDocumentById;
-using CollabDoc.Application.Documents.Queries.SearchDocuments;
+using CollabDoc.Application.Features.Documents.Commands.CreateDocument;
+using CollabDoc.Application.Features.Documents.Commands.UpdateDocument;
+using CollabDoc.Application.Features.Documents.Commands.DeleteDocument;
+using CollabDoc.Application.Features.Documents.Queries.GetAllDocuments;
+using CollabDoc.Application.Features.Documents.Queries.GetDocumentById;
+using CollabDoc.Application.Features.Documents.Queries.SearchDocuments;
 using CollabDoc.Application.Dtos;
+using CollabDoc.Application.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,10 +19,12 @@ namespace CollabDoc.Api.Controllers;
 public class DocumentsController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly ICacheService _cacheService;
 
-    public DocumentsController(IMediator mediator)
+    public DocumentsController(IMediator mediator, ICacheService cacheService)
     {
         _mediator = mediator;
+        _cacheService = cacheService;
     }
 
     [HttpGet]
@@ -47,6 +50,7 @@ public class DocumentsController : ControllerBase
     [Authorize]
     public async Task<IActionResult> Create([FromBody] DocumentCreateDto dto)
     {
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var created = await _mediator.Send(new CreateDocumentCommand(dto, userId));
         return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
@@ -72,4 +76,30 @@ public class DocumentsController : ControllerBase
     [Authorize]
     public async Task<IActionResult> Search([FromQuery] string query)
         => Ok(await _mediator.Send(new SearchDocumentsQuery(query)));
+
+    // Cache management endpoints
+    [HttpDelete("cache/{id}")]
+    [Authorize]
+    public async Task<IActionResult> ClearDocumentCache(string id)
+    {
+        await _cacheService.RemoveAsync($"document:{id}");
+        return Ok(new { message = "Cache tài liệu đã được xóa thành công." });
+    }
+
+    [HttpDelete("cache/user")]
+    [Authorize]
+    public async Task<IActionResult> ClearUserDocumentsCache()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        await _cacheService.RemoveByPatternAsync($"user_documents:{userId}*");
+        return Ok(new { message = "Cache danh sách tài liệu của bạn đã được xóa." });
+    }
+
+    [HttpDelete("cache/search")]
+    [Authorize]
+    public async Task<IActionResult> ClearSearchCache()
+    {
+        await _cacheService.RemoveByPatternAsync("document_search:*");
+        return Ok(new { message = "Cache tìm kiếm đã được xóa." });
+    }
 }

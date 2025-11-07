@@ -1,50 +1,30 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using CollabDoc.Application.Security;
-using CollabDoc.Application.Services;
 using CollabDoc.Realtime.Hubs;
-using CollabDoc.Application.Interfaces;
-using CollabDoc.Infrastructure.Settings;
 using CollabDoc.Infrastructure.Mappings;
 using CollabDoc.Api.Middlewares;
 using System.Text.Json;
 using CollabDoc.Application.Common;
-using CollabDoc.Infrastructure.Repositories;
+using CollabDoc.Application;
+using CollabDoc.Infrastructure;
+using CollabDoc.Realtime;
+using CollabDoc.Infrastructure.Settings;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // =====================
-// 1️⃣ CONFIGURATION
-// =====================
-builder.Services.Configure<MongoDbSettings>(
-    builder.Configuration.GetSection("MongoDbSettings"));
-
-var mongoSettings = builder.Configuration
-    .GetSection("MongoDbSettings")
-    .Get<MongoDbSettings>()
-    ?? throw new InvalidOperationException("❌ MongoDB settings not found in configuration.");
-
-builder.Services.AddSingleton(mongoSettings);
-
-// =====================
-// 2️⃣ DEPENDENCY INJECTION
+// 1️⃣ DEPENDENCY INJECTION
 // =====================
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
-builder.Services.AddScoped<DocumentService>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<JwtTokenService>();
-builder.Services.AddSignalR();
-builder.Logging.AddConsole();
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddRealtime();
 
 // =====================
-// 3️⃣ JWT AUTHENTICATION CONFIG
+// 2️⃣ JWT AUTHENTICATION CONFIG với Options Pattern
 // =====================
-var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey missing.");
-
 builder.Services
     .AddAuthentication(options =>
     {
@@ -52,82 +32,80 @@ builder.Services
         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
     })
     .AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidAudience = jwtSettings["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-        ClockSkew = TimeSpan.Zero
-    };
+        var serviceProvider = builder.Services.BuildServiceProvider();
+        var jwtSettings = serviceProvider.GetRequiredService<IOptions<JwtSettings>>().Value;
 
-    // ✅ Gộp tất cả event vào chung
-    options.Events = new JwtBearerEvents
-    {
-        // Cho phép SignalR lấy token từ query string
-        OnMessageReceived = context =>
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            var accessToken = context.Request.Query["access_token"];
-            var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/collab"))
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings.Issuer,
+            ValidAudience = jwtSettings.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
+            ClockSkew = TimeSpan.FromMinutes(jwtSettings.ClockSkewMinutes)
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
             {
-                context.Token = accessToken;
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/collab"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
+
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json";
+
+                var response = new ApiResponse<string>(
+                    StatusCodes.Status401Unauthorized,
+                    "Unauthorized. Token missing or invalid.",
+                    null,
+                    "Unauthorized"
+                );
+
+                var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                return context.Response.WriteAsync(json);
+            },
+
+            OnForbidden = context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+
+                var response = new ApiResponse<string>(
+                    StatusCodes.Status403Forbidden,
+                    "Forbidden. You do not have permission to access this resource.",
+                    null,
+                    "Forbidden"
+                );
+
+                var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                return context.Response.WriteAsync(json);
             }
-            return Task.CompletedTask;
-        },
-
-        // Xử lý lỗi Unauthorized
-        OnChallenge = context =>
-        {
-            context.HandleResponse();
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            context.Response.ContentType = "application/json";
-
-            var response = new ApiResponse<string>(
-                StatusCodes.Status401Unauthorized,
-                "Unauthorized. Token missing or invalid.",
-                null,
-                "Unauthorized"
-            );
-
-            var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            return context.Response.WriteAsync(json);
-        },
-
-        // Xử lý lỗi Forbidden
-        OnForbidden = context =>
-        {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            context.Response.ContentType = "application/json";
-
-            var response = new ApiResponse<string>(
-                StatusCodes.Status403Forbidden,
-                "Forbidden. You do not have permission to access this resource.",
-                null,
-                "Forbidden"
-            );
-
-            var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            return context.Response.WriteAsync(json);
-        }
-    };
-});
-
+        };
+    });
 
 // =====================
-// 4️⃣ BASIC SERVICES + CORS CONFIG
+// 3️⃣ BASIC SERVICES
 // =====================
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -137,28 +115,32 @@ builder.Services.AddSwaggerGen();
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
-// ✅ CORS Config (đặt trước builder.Build())
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
-                     ?? new[] { "http://localhost:3000" };
-
+// =====================
+// =====================
+// 4️⃣ CORS CONFIG với Options Pattern
+// =====================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        var corsSettings = builder.Configuration.GetSection("CorsSettings").Get<CorsSettings>();
+
+        policy.WithOrigins(corsSettings.AllowedOrigins)
+              .WithMethods(corsSettings.AllowedMethods)
+              .WithHeaders(corsSettings.AllowedHeaders.Any() ? corsSettings.AllowedHeaders : new[] { "*" });
+
+        if (corsSettings.AllowCredentials)
+        {
+            policy.AllowCredentials();
+        }
     });
 });
-
 var app = builder.Build();
 
 // =====================
-// 5️⃣ REGISTER CLASS MAPS
+// 5️⃣ INITIALIZE MONGODB MAPS
 // =====================
-DocumentMap.RegisterClassMap();
-UserMap.RegisterClassMap();
+CollabDoc.Infrastructure.DependencyInjection.InitializeMongoMaps();
 
 // =====================
 // 6️⃣ MIDDLEWARE PIPELINE
@@ -172,13 +154,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// ⚡ Bật CORS trước Authentication
 app.UseCors("AllowSpecificOrigins");
-
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHub<CollabHub>("/hubs/collab");
-// app.UseHttpsRedirection();
 app.MapControllers();
+
 app.Run();

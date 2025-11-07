@@ -2,18 +2,20 @@ using CollabDoc.Domain.Entities;
 using CollabDoc.Infrastructure.Settings;
 using MongoDB.Driver;
 using CollabDoc.Application.Interfaces;
+using Microsoft.Extensions.Options;
 
 namespace CollabDoc.Infrastructure.Repositories;
 
 public class DocumentRepository : IDocumentRepository
 {
     private readonly IMongoCollection<Document> _collection;
-
-    public DocumentRepository(MongoDbSettings settings)
+    private readonly MongoDbSettings _mongoSettings;
+    public DocumentRepository(IOptions<MongoDbSettings> mongoOptions)
     {
-        var client = new MongoClient(settings.ConnectionString);
-        var db = client.GetDatabase(settings.DatabaseName);
-        _collection = db.GetCollection<Document>(settings.DocumentsCollection);
+        _mongoSettings = mongoOptions.Value;
+        var client = new MongoClient(_mongoSettings.ConnectionString);
+        var db = client.GetDatabase(_mongoSettings.DatabaseName);
+        _collection = db.GetCollection<Document>(_mongoSettings.DocumentsCollection);
 
         // Tạo index full-text cho Title (phục vụ search)
         var indexKeys = Builders<Document>.IndexKeys.Text(d => d.Title);

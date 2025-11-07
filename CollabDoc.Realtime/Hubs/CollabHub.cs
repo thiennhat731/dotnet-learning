@@ -268,7 +268,7 @@ namespace CollabDoc.Realtime.Hubs
             await Clients.OthersInGroup(documentId).SendAsync(HubEvents.AwarenessUpdate, update);
         }
 
-        // 💾 Auto-save document state từ client
+        //  Auto-save document state từ client
         public async Task SaveDocumentState(string documentId, List<int> fullState)
         {
             var userEmail = Context.User?.FindFirst(ClaimTypes.Email)?.Value ?? "Anonymous";

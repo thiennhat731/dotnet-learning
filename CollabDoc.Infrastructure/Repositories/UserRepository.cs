@@ -1,6 +1,8 @@
-using CollabDoc.Domain.Entities;
 using CollabDoc.Application.Interfaces;
+using CollabDoc.Domain.Entities;
 using CollabDoc.Infrastructure.Settings;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
 namespace CollabDoc.Infrastructure.Repositories;
@@ -8,12 +10,18 @@ namespace CollabDoc.Infrastructure.Repositories;
 public class UserRepository : IUserRepository
 {
     private readonly IMongoCollection<User> _users;
+    private readonly MongoDbSettings _mongoSettings;
+    private readonly ILogger<UserRepository> _logger;
 
-    public UserRepository(MongoDbSettings settings)
+    public UserRepository(
+        IOptions<MongoDbSettings> mongoOptions,
+        ILogger<UserRepository> logger)
     {
-        var client = new MongoClient(settings.ConnectionString);
-        var database = client.GetDatabase(settings.DatabaseName);
-        _users = database.GetCollection<User>("users");
+        _mongoSettings = mongoOptions.Value;
+        _logger = logger;
+        var client = new MongoClient(_mongoSettings.ConnectionString);
+        var database = client.GetDatabase(_mongoSettings.DatabaseName);
+        _users = database.GetCollection<User>(_mongoSettings.UsersCollection);
     }
 
     public async Task<List<User>> GetAllAsync() =>
